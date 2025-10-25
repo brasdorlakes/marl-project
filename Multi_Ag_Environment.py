@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[13]:
+# In[2]:
 
 
 #Import Packages
@@ -10,6 +10,7 @@ import random
 from copy import copy
 import pettingzoo
 import numpy as np
+import gymnasium as gym
 from gymnasium.spaces import Discrete, MultiDiscrete
 from pettingzoo import ParallelEnv
 import matplotlib.pyplot as plt
@@ -17,7 +18,7 @@ from pettingzoo.test import parallel_api_test
 from gymnasium import spaces
 
 
-# In[14]:
+# In[3]:
 
 
 #Environment Definition
@@ -56,13 +57,12 @@ class CustomEnvironment(ParallelEnv):
         #    "current_timestep": spaces.Box(low=0.0, high=32, shape=(1,), dtype=np.float32),
         #    "action_mask": spaces.MultiBinary(2),
         #})
-        act_space=spaces.Discrete(1)
         self.observation_spaces = {agent: self.observation_space for agent in self.possible_agents}
         self.action_spaces = {agent: self.action_space for agent in self.possible_agents}
 
     def reset(self, seed=None, options=None):
         """Reset set the environment to a starting point.
-
+       
         It needs to initialize the following attributes:
         - agents
         - timestamp
@@ -77,6 +77,7 @@ class CustomEnvironment(ParallelEnv):
 
         And must set up the environment so that render(), step(), and observe() can be called without issues.
         """
+        self.np_random, _ = gym.utils.seeding.np_random(seed)
         self.agents = copy(self.possible_agents)
         self.timestep = 0
         #Define the initial data volume at each satellite
@@ -146,7 +147,8 @@ class CustomEnvironment(ParallelEnv):
         else:
             new_matrix=matrix
             #print(new_matrix)
-
+        print("New Matrix")
+        print(new_matrix)
         self.original_matrix=new_matrix
         #Next we must convert the new matrix into a format that can be loaded into the observation space effectively
         rows, cols = 30, 5
@@ -173,8 +175,8 @@ class CustomEnvironment(ParallelEnv):
                         #print("Encoded Row")
                         #print(encoded_row)
                         obs_matrix[i][k]=encoded_row[k-2]
-        #print("Obs matrix")
-        #print(obs_matrix)
+        print("Obs matrix")
+        print(obs_matrix)
         #Next we must define the action mask 
         action_mask=[[0,0],[0,0],[0,0]]
         if obs_matrix[1][2]==1:
@@ -206,7 +208,10 @@ class CustomEnvironment(ParallelEnv):
         #Set energy expenditure for each satellite
         self.energy_efficiency=[None,None,None]
         self.energy_expenditure=[0,0,0]
-        
+        for a in self.agents:
+            self.obs_satellite_data[a]=self.satellite_obs_update(a)
+            print("Initial Satellite Observations")
+            print(self.obs_satellite_data[a])
         
         #Implement observations
         #Each satellite has access to the following observations
@@ -276,19 +281,37 @@ class CustomEnvironment(ParallelEnv):
             
             if collision_matrix[i]==1:
                 #We have a conflict, no packets are sent and the satellite receives a large penalty
-                reward[a]=-10
+                rewards[a]=-10
+                print("Collision between satellites")
+                print(rewards)
             else:
                 if current_value==0:
                     rewards[a]=0
+                    print("Satellite does not send data")
+                    print(rewards)
+                    
                 else:
-                    delivered_packets,excess_energy=updateDeliveryandEnergy(self,agent,row[1],row[2])
+                    print("Master Contact Plan")
+                    print(self.master_contact_plan)
+                    print("Weather Conditions")
+                    print(self.master_contact_plan[self.timestep][0])
+                    print("Remaining Packets to send for current agent")
+                    print(self.satellite_data[i])
+                          
+                    delivered_packets,excess_energy=self.updateDeliveryandEnergy(self.master_contact_plan[self.timestep][0],10,self.satellite_data[i])
                     if delivered_packets >0:
+                        #Update the Observation Space for the current agent
+                        self.obs_satellite_data[a]=self.satellite_obs_update(a)
                         #Positive Reward
                         rewards[a]=delivered_packets/(excess_energy+1)
+                        print("Satellite successfully delivers data")
+                        print(rewards)
                         #Next need to update the observed satellite data values for each satellite
-                        interim_satellite_data_observations=satellite_obs_update(actions,delivered_packets)
+                        interim_satellite_data_observations=self.satellite_obs_update(a)
                     else:
                         rewards[a]=-1
+                        print(rewards)
+                        print("Satellite fails to deliver data")
             i=i+1
        
         
@@ -366,8 +389,7 @@ class CustomEnvironment(ParallelEnv):
                             #print(encoded_row)
                             obs_matrix[i][k]=encoded_row[k-2]
             
-            #print("Obs matrix")
-            #print(obs_matrix)
+            
             #Next we must define the action mask 
             action_mask=[[0,0],[0,0],[0,0]]
             if obs_matrix[self.timestep][2]==1:
@@ -382,26 +404,20 @@ class CustomEnvironment(ParallelEnv):
         
 
         infos = {a: {} for a in self.agents}
-        
-        if any(terminations.values()) or all(truncations.values()):
-            self.agents = []
         observations = {
             a: {
                 "central_observation_matrix":obs_matrix,
-                "delivered_packets":self.delivered_packets,
-                "energy_expenditure":self.energy_expenditure,
-                "remaining_satellite_data":self.satellite_data,
+                "remaining_satellite_data":self.obs_satellite_data[a],
                 "current_timestep":self.timestep,
                 "action_mask":obs_action_mask[a]
-                #self.prisoner_x + 7 * self.prisoner_y,
-                #self.guard_x + 7 * self.guard_y,
-                #self.escape_x + 7 * self.escape_y,
-
-                #Need to implement action mask
-                
             }
             for a in self.agents
         }
+        if any(terminations.values()) or all(truncations.values()):
+            self.agents = []
+
+        
+       
         print("self.agents:", self.agents)
         print("Returning observations for:", list(observations.keys()))
         print("Expected agents:", self.agents)
@@ -420,16 +436,20 @@ class CustomEnvironment(ParallelEnv):
         return self.timestep
     #In this function we obtain the number of delivered packets and excess energy expenditure 
     #If we select the given contact
-    def updateDeliveryandEnergy(self,agent,weather,length):
+    def updateDeliveryandEnergy(self,weather,length,remaining_data):
         delivered_packets=0
         excess_energy_expended=0
-        for i in range(length)-1:
-            random_sample=random.random()
-            if random_sample> weather:
-                delivered_packets=delivered_packets+1
+        random_sample=self.np_random.uniform(low=0.0, high=1.0, size=(10,)).astype(np.float32)
+        for i in range(length-1):
+            if remaining_data>0:
+                if random_sample[i]> weather:
+                    delivered_packets=delivered_packets+1
+                    remaining_data=remaining_data-1
+                else:
+                    excess_energy_expended=excess_energy_expended+1
             else:
                 excess_energy_expended=excess_energy_expended+1
-    
+        
         return delivered_packets,excess_energy_expended
     #Check if any satellites have conflicts in terms of connections
     def checkActionConflict(self,timestep,actions):
@@ -447,15 +467,14 @@ class CustomEnvironment(ParallelEnv):
             penalty_matrix=conflict_matrix
         return penalty_matrix
     #Update the observations of the satellites if one makes contact with the ground
-    def satellite_obs_update(actions,delivered_packets):
+    def satellite_obs_update(self,agent):
         #We take the actions and check that we established contact with the ground station
         #We update for the successful satellite the satellite data values that are known by the network
         #And we update the array that holds it for subsequent environment steps
-        pass
+        current_data=self.satellite_data
+        self.obs_satellite_data[agent]=self.satellite_data
+        return self.obs_satellite_data[agent]
 
-
-
-        
     def render(self):
         print("Render not implemented yet.")
         #values = [3, 7, 2, 5, 9]
@@ -482,7 +501,7 @@ class CustomEnvironment(ParallelEnv):
 # If your spaces change over time, remove this line (disable caching).
     @functools.lru_cache(maxsize=None)
     def action_space(self, agent):
-        return Discrete(1)
+        return Discrete(2)
 
 #Function to retrieve a single row from the master contact plan
 
