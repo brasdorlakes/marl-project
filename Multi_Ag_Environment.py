@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[2]:
+# In[ ]:
 
 
 #Import Packages
@@ -18,7 +18,7 @@ from pettingzoo.test import parallel_api_test
 from gymnasium import spaces
 
 
-# In[3]:
+# In[ ]:
 
 
 #Environment Definition
@@ -30,11 +30,8 @@ class CustomEnvironment(ParallelEnv):
     }
     def __init__(self):
         """The init method takes in environment arguments.
-
-        Note: as of v1.18.1, the action_spaces and observation_spaces attributes are deprecated.
-        Spaces should be defined in the action_space() and observation_space() methods.
-        If these methods are not overridden, spaces will be inferred from self.observation_spaces/action_spaces, raising a warning.
-
+        
+        
         These attributes should not be changed after initialization.
         """
         self.master_contact_plan = None
@@ -48,6 +45,16 @@ class CustomEnvironment(ParallelEnv):
         self.delivered_packets=None
         self.initial_satellite_data=None
         self.original_matrix=None
+        self.total_initial_data_volume=None
+        self.initial_data_volume=self.initial_data_volume = {
+    agent: [None] for agent in self.possible_agents
+}
+        self.sat_energy_expended=self.sat_energy_expended = {
+    agent: [None] for agent in self.possible_agents
+}
+        self.sat_packets_delivered=self.sat_packets_delivered = {
+    agent: [None] for agent in self.possible_agents
+}
         self.obs_satellite_data=self.obs_satellite_data = {
     agent: [None, None, None] for agent in self.possible_agents
 }
@@ -204,10 +211,13 @@ class CustomEnvironment(ParallelEnv):
         #print(self.master_contact_plan)
         #Set delivery ratio for each satellite
         self.delivery_ratio=[None,None,None]
-        self.delivered_packets=[0,0,0]
+        self.delivered_packets=0
         #Set energy expenditure for each satellite
         self.energy_efficiency=[None,None,None]
-        self.energy_expenditure=[0,0,0]
+        self.energy_expenditure=0
+        self.sat_energy_expended=[0,0,0]
+        self.initial_satellite_data_volume=[0,0,0]
+        self.sat_packets_delivered=[0,0,0]
         for a in self.agents:
             self.obs_satellite_data[a]=self.satellite_obs_update(a)
             print("Initial Satellite Observations")
@@ -284,6 +294,7 @@ class CustomEnvironment(ParallelEnv):
                 rewards[a]=-10
                 print("Collision between satellites")
                 print(rewards)
+                self.updateEnergyMetrics()
             else:
                 if current_value==0:
                     rewards[a]=0
@@ -300,7 +311,11 @@ class CustomEnvironment(ParallelEnv):
                           
                     delivered_packets,excess_energy=self.updateDeliveryandEnergy(self.master_contact_plan[self.timestep][0],10,self.satellite_data[i])
                     if delivered_packets >0:
+                        #First we need to update the buffers of the satellite
+                        self.satBufferUpdate(i,delivered_packets)
                         #Update the Observation Space for the current agent
+                        self.updateEnergyMetrics(i,excess_energy)
+                        self.updateDeliveryMetrics(i,delivered_packets)
                         self.obs_satellite_data[a]=self.satellite_obs_update(a)
                         #Positive Reward
                         rewards[a]=delivered_packets/(excess_energy+1)
@@ -451,6 +466,33 @@ class CustomEnvironment(ParallelEnv):
                 excess_energy_expended=excess_energy_expended+1
         
         return delivered_packets,excess_energy_expended
+
+
+    #Update the energy expenditure metrics
+    def updateEnergyMetrics(self,a,energy_expended):
+        #Update total energy expended
+        self.energy_expenditure=self.energy_expenditure+energy_expended
+        #Update the specific energy expended for the satellite
+        self.sat_energy_expended[a]=self.sat_energy_expended[a]+energy_expended
+
+
+        
+    #Update the delivered packet metrics
+    def updateDeliveryMetrics(self,a,delivered_packets):
+        self.delivered_packets=self.delivered_packets+delivered_packets
+        #Next update the specific packets delivered 
+        self.sat_packets_delivered[a]=self.sat_packets_delivered[a]+delivered_packets
+        
+    #Update the satellite buffer of the agent
+    def satBufferUpdate(self,agent,delivered_packets):
+        #We need to convert to 
+        if self.satellite_data[agent]<delivered_packets:
+            self.energy_expenditure=delivered_packets-self.satellite_data[agent]
+            self.satellite_data[agent]=0
+            
+        else:
+            self.satellite_data[agent]=self.satellite_data[agent]-delivered_packets
+        
     #Check if any satellites have conflicts in terms of connections
     def checkActionConflict(self,timestep,actions):
         master_observation_matrix=self.master_contact_plan
