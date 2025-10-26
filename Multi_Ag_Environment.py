@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[ ]:
+# In[10]:
 
 
 #Import Packages
@@ -18,7 +18,7 @@ from pettingzoo.test import parallel_api_test
 from gymnasium import spaces
 
 
-# In[ ]:
+# In[12]:
 
 
 #Environment Definition
@@ -36,16 +36,16 @@ class CustomEnvironment(ParallelEnv):
         """
         self.master_contact_plan = None
         self.satellite_plan = None
-        self.satellite_data=[None,None,None]
-        self.timestep = None
-        self.possible_agents = ["satellite1","satellite2","satellite3"]
-        self.delivery_ratio=None
-        self.energy_efficiency=None
-        self.energy_expenditure=None
-        self.delivered_packets=None
-        self.initial_satellite_data=None
+        self.satellite_data=[None,None,None]#Data that we must transmit to the ground
+        self.timestep = None#Tracks where in the contact plan we are
+        self.possible_agents = ["satellite1","satellite2","satellite3"]#Defines the names of the agents which we will use throughout the code to identify
+        self.delivery_ratio=None#Metric that defines the overall delivery ratio
+        self.energy_efficiency=None#Metric that defines the overall energy efficiency
+        self.energy_expenditure=None #Metric that tracks the overall energy expenditure
+        self.delivered_packets=None #Metric that tracks the overall number of packets delivered
+        self.initial_satellite_data=None#Stores the initial data volume values to allow for delivery ratio calcs later
         self.original_matrix=None
-        self.total_initial_data_volume=None
+        self.total_initial_data_volume=None#Stores sum of initial satellite data volumes
         self.initial_data_volume=self.initial_data_volume = {
     agent: [None] for agent in self.possible_agents
 }
@@ -377,6 +377,46 @@ class CustomEnvironment(ParallelEnv):
             if obs_matrix[29][4]==1:
                 action_mask[2]:[0,0]
             obs_action_mask = {a: action_mask[i] for i, a in enumerate(self.agents)}
+        elif self.original_matrix[self.timestep][0]==-1:
+            truncations={a: True for a in self.agents}
+            new_matrix=self.original_matrix
+            rows, cols = 30, 5
+            obs_matrix = [[None for _ in range(cols)] for _ in range(rows)]
+            for i in range(30):
+                for j in range(3):
+                    if j<2:
+                        obs_matrix[i][j]=new_matrix[i][j]
+                    elif j==2:
+                        current_element=new_matrix[i][j]
+                        #print(current_element)
+                        encoded_row=[0,0,0]
+                        if current_element!=-1:
+                            for k in range(len(current_element)-1):
+                                if current_element[k]=="satellite1":
+                                    encoded_row[0]=1
+                                elif current_element[k]=="satellite2":
+                                    encoded_row[1]=1
+                                elif current_element[k]=="satellite3":
+                                    encoded_row[2]=1
+                        else:
+                            encoded_row=[0,0,0]
+                        for k in range(2,5):
+                            #print("Encoded Row")
+                            #print(encoded_row)
+                            obs_matrix[i][k]=encoded_row[k-2]
+            
+            #print("Obs matrix")
+            #print(obs_matrix)
+            #Next we must define the action mask 
+            action_mask=[[0,0],[0,0],[0,0]]
+            if obs_matrix[29][2]==1:
+                action_mask[0]:[0,0]
+            if obs_matrix[29][3]==1:
+                action_mask[1]:[0,0]
+            if obs_matrix[29][4]==1:
+                action_mask[2]:[0,0]
+            obs_action_mask = {a: action_mask[i] for i, a in enumerate(self.agents)}
+            
         else:
             new_matrix=self.original_matrix
             rows, cols = 30, 5
