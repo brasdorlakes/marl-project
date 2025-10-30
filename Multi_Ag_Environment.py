@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[6]:
+# In[15]:
 
 
 #Import Packages
@@ -18,7 +18,7 @@ from pettingzoo.test import parallel_api_test
 from gymnasium import spaces
 
 
-# In[11]:
+# In[17]:
 
 
 #Environment Definition
@@ -194,14 +194,21 @@ class CustomEnvironment(ParallelEnv):
         print(obs_matrix)
         #Next we must define the action mask 
         action_mask=[[0,0],[0,0],[0,0]]
-        if obs_matrix[1][2]==1:
-            action_mask[0]:[1,1]
-        if obs_matrix[1][3]==1:
-            action_mask[1]:[1,1]
-        if obs_matrix[1][4]==1:
-            action_mask[2]:[1,1]
+        print(obs_matrix[0][2])
+        if obs_matrix[0][2]==1:
+            action_mask[0]=[1,1]
+        print(obs_matrix[0][3])
+        if obs_matrix[0][3]==1:
+            action_mask[1]=[1,1]
+        print(obs_matrix[0][4])
+        if obs_matrix[0][4]==1:
+            action_mask[2]=[1,1]
         #Next need to configure action mask as dictionary
+        print("Original Action Mask")
+        print(action_mask)
         obs_action_mask = {a: action_mask[i] for i, a in enumerate(self.agents)}
+        print("Observation Action Mask")
+        print(obs_action_mask)
         #for a in self.agents:
         #    obs_action_mask=dict[a:None]
         #print(obs_action_mask)
@@ -214,7 +221,7 @@ class CustomEnvironment(ParallelEnv):
 
         
                 #randomly allocate weather conditions and if the contact is shared
-        self.timestep=1
+        self.timestep=0
         self.master_contact_plan=obs_matrix        
         #print(self.master_contact_plan)
         #Set delivery ratio for each satellite
