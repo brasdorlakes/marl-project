@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[10]:
+# In[6]:
 
 
 #Import Packages
@@ -18,7 +18,7 @@ from pettingzoo.test import parallel_api_test
 from gymnasium import spaces
 
 
-# In[12]:
+# In[9]:
 
 
 #Environment Definition
@@ -158,6 +158,8 @@ class CustomEnvironment(ParallelEnv):
         print(new_matrix)
         self.original_matrix=new_matrix
         #Next we must convert the new matrix into a format that can be loaded into the observation space effectively
+        
+        print("Contact Plan Formatting")
         rows, cols = 30, 5
         obs_matrix = [[None for _ in range(cols)] for _ in range(rows)]
         for i in range(30):
@@ -166,21 +168,27 @@ class CustomEnvironment(ParallelEnv):
                     obs_matrix[i][j]=new_matrix[i][j]
                 elif j==2:
                     current_element=new_matrix[i][j]
-                    #print(current_element)
+                    print("Current Element initial")
+                    print(current_element)
                     encoded_row=[0,0,0]
                     if current_element!=-1:
                         for k in range(len(current_element)-1):
-                            if current_element[k]=="satellite1":
+                            print("current element")
+                            print(current_element[k])
+                            if current_element[k]=='Satellite1':
                                 encoded_row[0]=1
-                            elif current_element[k]=="satellite2":
+                                
+                            elif current_element[k]=='Satellite2':
                                 encoded_row[1]=1
-                            elif current_element[k]=="satellite3":
+                            elif current_element[k]=='Satellite3':
                                 encoded_row[2]=1
+                        print("Modified encoded row")
+                        print(encoded_row)
                     else:
                         encoded_row=[0,0,0]
                     for k in range(2,5):
-                        #print("Encoded Row")
-                        #print(encoded_row)
+                        print("Encoded Row")
+                        print(encoded_row)
                         obs_matrix[i][k]=encoded_row[k-2]
         print("Obs matrix")
         print(obs_matrix)
