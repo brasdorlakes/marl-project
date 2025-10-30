@@ -18,7 +18,7 @@ from pettingzoo.test import parallel_api_test
 from gymnasium import spaces
 
 
-# In[9]:
+# In[11]:
 
 
 #Environment Definition
@@ -115,7 +115,8 @@ class CustomEnvironment(ParallelEnv):
         
             # Select nodes for the row
             selected_nodes = random.sample(available_nodes, num_nodes_in_row)
-        
+            print("selected_nodes")
+            print(selected_nodes)
             # Update usage count
             for node in selected_nodes:
                 node_usage[node] += 1
@@ -172,12 +173,11 @@ class CustomEnvironment(ParallelEnv):
                     print(current_element)
                     encoded_row=[0,0,0]
                     if current_element!=-1:
-                        for k in range(len(current_element)-1):
+                        for k in range(len(current_element)):
                             print("current element")
                             print(current_element[k])
                             if current_element[k]=='Satellite1':
                                 encoded_row[0]=1
-                                
                             elif current_element[k]=='Satellite2':
                                 encoded_row[1]=1
                             elif current_element[k]=='Satellite3':
