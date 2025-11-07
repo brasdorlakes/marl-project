@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[11]:
+# In[20]:
 
 
 #Import Packages
@@ -18,7 +18,7 @@ from pettingzoo.test import parallel_api_test
 from gymnasium import spaces
 
 
-# In[14]:
+# In[21]:
 
 
 #Environment Definition
@@ -36,14 +36,16 @@ class CustomEnvironment(ParallelEnv):
         """
         self.master_contact_plan = None
         self.satellite_plan = None
-        self.satellite_data=[None,None,None]#Data that we must transmit to the ground
+        #Data that we must transmit to the ground
         self.timestep = None#Tracks where in the contact plan we are
         self.possible_agents = ["satellite1","satellite2","satellite3"]#Defines the names of the agents which we will use throughout the code to identify
+        self.satellite_data=self.satellite_data = {
+    agent: None for agent in self.possible_agents
+}
         self.delivery_ratio=None#Metric that defines the overall delivery ratio
         self.energy_efficiency=None#Metric that defines the overall energy efficiency
         self.energy_expenditure=None #Metric that tracks the overall energy expenditure
         self.delivered_packets=None #Metric that tracks the overall number of packets delivered
-        self.initial_satellite_data=None#Stores the initial data volume values to allow for delivery ratio calcs later
         self.original_matrix=None
         self.Num_of_Collisions=None
         self.total_initial_data_volume=None#Stores sum of initial satellite data volumes
@@ -89,12 +91,14 @@ class CustomEnvironment(ParallelEnv):
         self.agents = copy(self.possible_agents)
         self.timestep = 0
         #Define the initial data volume at each satellite
-        for i in range(3):
-            self.satellite_data[i]=random.randint(5,100)
+        for a in self.possible_agents:
+            self.satellite_data[a]=random.randint(5,100)
+        
         #print(self.satellite_data)
-        self.initial_satellite_data=0
-        for i in range(len(self.satellite_data)):
-            self.initial_satellite_data=self.initial_satellite_data+self.satellite_data[i]
+        self.total_initial_data_volume=0
+        for a in self.possible_agents:
+            self.initial_data_volume[a]=self.satellite_data[a]
+            self.total_initial_data_volume=self.total_initial_data_volume+self.satellite_data[a]
         #Define the master contact plan
         #Contains 30 contacts (total), weather values for each contact and which contacts are shared
             
@@ -234,10 +238,6 @@ class CustomEnvironment(ParallelEnv):
         self.sat_energy_expended = {
     agent: 0 for agent in self.possible_agents
 }
-        i=0
-        for a in self.possible_agents:
-            self.initial_data_volume[a]=self.satellite_data[i]
-            i=i+1
         self.sat_packets_delivered = {
     agent: 0 for agent in self.possible_agents
 }
@@ -267,7 +267,7 @@ class CustomEnvironment(ParallelEnv):
         }
 
         # Get dummy infos. Necessary for proper parallel_to_aec conversion
-        infos = {a: {"Delivered_Packets":self.delivered_packets,"Total_Energy_Expended":self.energy_expenditure,"True_Contact_Matrix":self.master_contact_plan,"satellite_delivered_packets":self.sat_packets_delivered[a],"satellite_energy_expended":self.sat_energy_expended[a],"satellite_initial_data_volume":self.initial_data_volume[a],"Number_of_Collisions":self.Num_of_Collisions} for a in self.agents}
+        infos = {a: {"Delivered_Packets":self.delivered_packets,"Total_Energy_Expended":self.energy_expenditure,"True_Contact_Matrix":self.master_contact_plan,"satellite_delivered_packets":self.sat_packets_delivered[a],"satellite_energy_expended":self.sat_energy_expended[a],"satellite_initial_data_volume":self.initial_data_volume[a],"Number_of_Collisions":self.Num_of_Collisions,"Initial_Satellite_Data_Volume":self.initial_data_volume[a],"Total_Initial_Satellite_Data_Volume":self.initial_data_volume[a]} for a in self.agents}
         #print("self.agents:", self.agents)
         #print("Returning observations for:", list(observations.keys()))
         #print("Expected agents:", self.agents)
@@ -334,10 +334,10 @@ class CustomEnvironment(ParallelEnv):
                     #print("Remaining Packets to send for current agent")
                     #print(self.satellite_data[i])
                           
-                    delivered_packets,excess_energy=self.updateDeliveryandEnergy(self.master_contact_plan[self.timestep][0],10,self.satellite_data[i])
+                    delivered_packets,excess_energy=self.updateDeliveryandEnergy(self.master_contact_plan[self.timestep][0],10,self.satellite_data[a])
                     if delivered_packets >0:
                         #First we need to update the buffers of the satellite
-                        self.satBufferUpdate(i,delivered_packets)
+                        self.satBufferUpdate(a,delivered_packets)
                         #Update the Observation Space for the current agent
                         self.updateEnergyMetrics(a,excess_energy)
                         self.updateDeliveryMetrics(a,delivered_packets)
@@ -479,9 +479,9 @@ class CustomEnvironment(ParallelEnv):
             if obs_matrix[self.timestep][4]==1:
                 action_mask[2]=[1,1]
             obs_action_mask = {a: action_mask[i] for i, a in enumerate(self.agents)}
-        if delivered_packets==self.initial_satellite_data:
+        if delivered_packets==self.total_initial_data_volume:
             terminations={a: True for a in self.agents}
-        infos = {a: {"Delivered_Packets":self.delivered_packets,"Total_Energy_Expended":self.energy_expenditure,"True_Contact_Matrix":self.master_contact_plan,"satellite_delivered_packets":self.sat_packets_delivered[a],"satellite_energy_expended":self.sat_energy_expended[a],"satellite_initial_data_volume":self.initial_data_volume[a],"Number_of_Collisions":self.Num_of_Collisions} for a in self.agents}
+        infos = {a: {"Delivered_Packets":self.delivered_packets,"Total_Energy_Expended":self.energy_expenditure,"True_Contact_Matrix":self.master_contact_plan,"satellite_delivered_packets":self.sat_packets_delivered[a],"satellite_energy_expended":self.sat_energy_expended[a],"satellite_initial_data_volume":self.initial_data_volume[a],"Number_of_Collisions":self.Num_of_Collisions,"Initial_Satellite_Data_Volume":self.initial_data_volume[a],"Total_Initial_Satellite_Data_Volume":self.total_initial_data_volume} for a in self.agents}
         observations = {
             a: {
                 "central_observation_matrix":obs_matrix,
