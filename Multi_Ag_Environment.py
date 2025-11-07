@@ -156,8 +156,8 @@ class CustomEnvironment(ParallelEnv):
         else:
             new_matrix=matrix
             #print(new_matrix)
-        print("New Matrix")
-        print(new_matrix)
+        #print("New Matrix")
+        #print(new_matrix)
         self.original_matrix=new_matrix
         #Next we must convert the new matrix into a format that can be loaded into the observation space effectively
         
@@ -268,9 +268,9 @@ class CustomEnvironment(ParallelEnv):
 
         # Get dummy infos. Necessary for proper parallel_to_aec conversion
         infos = {a: {"Delivered_Packets":self.delivered_packets,"Total_Energy_Expended":self.energy_expenditure,"True_Contact_Matrix":self.master_contact_plan,"satellite_delivered_packets":self.sat_packets_delivered[a],"satellite_energy_expended":self.sat_energy_expended[a],"satellite_initial_data_volume":self.initial_data_volume[a],"Number_of_Collisions":self.Num_of_Collisions} for a in self.agents}
-        print("self.agents:", self.agents)
-        print("Returning observations for:", list(observations.keys()))
-        print("Expected agents:", self.agents)
+        #print("self.agents:", self.agents)
+        #print("Returning observations for:", list(observations.keys()))
+        #print("Expected agents:", self.agents)
         missing = [agent for agent in self.agents if agent not in observations]
         if missing:
             print("❌ Missing observations for agents:", missing)
@@ -316,23 +316,23 @@ class CustomEnvironment(ParallelEnv):
             if collision_matrix[i]==1:
                 #We have a conflict, no packets are sent and the satellite receives a large penalty
                 rewards[a]=-10
-                print("Collision between satellites")
-                print(rewards)
+                #print("Collision between satellites")
+                #print(rewards)
                 self.updateEnergyMetrics(a,10)
                 self.Num_of_Collisions=self.Num_of_Collisions+1
             else:
                 if current_value==0:
                     rewards[a]=0
-                    print("Satellite does not send data")
-                    print(rewards)
+                    #print("Satellite does not send data")
+                    #print(rewards)
                     
                 else:
-                    print("Master Contact Plan")
-                    print(self.master_contact_plan)
-                    print("Weather Conditions")
-                    print(self.master_contact_plan[self.timestep][0])
-                    print("Remaining Packets to send for current agent")
-                    print(self.satellite_data[i])
+                    #print("Master Contact Plan")
+                    #print(self.master_contact_plan)
+                    #print("Weather Conditions")
+                    #print(self.master_contact_plan[self.timestep][0])
+                    #print("Remaining Packets to send for current agent")
+                    #print(self.satellite_data[i])
                           
                     delivered_packets,excess_energy=self.updateDeliveryandEnergy(self.master_contact_plan[self.timestep][0],10,self.satellite_data[i])
                     if delivered_packets >0:
@@ -350,8 +350,8 @@ class CustomEnvironment(ParallelEnv):
                         interim_satellite_data_observations=self.satellite_obs_update(a)
                     else:
                         rewards[a]=-1
-                        print(rewards)
-                        print("Satellite fails to deliver data")
+                        #print(rewards)
+                        #print("Satellite fails to deliver data")
             i=i+1
        
         
@@ -496,9 +496,9 @@ class CustomEnvironment(ParallelEnv):
 
         
        
-        print("self.agents:", self.agents)
-        print("Returning observations for:", list(observations.keys()))
-        print("Expected agents:", self.agents)
+        #print("self.agents:", self.agents)
+        #print("Returning observations for:", list(observations.keys()))
+        #print("Expected agents:", self.agents)
         missing = [agent for agent in self.agents if agent not in observations]
         if missing:
             print("❌ Missing observations for agents:", missing)
