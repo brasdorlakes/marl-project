@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[15]:
+# In[11]:
 
 
 #Import Packages
@@ -18,7 +18,7 @@ from pettingzoo.test import parallel_api_test
 from gymnasium import spaces
 
 
-# In[17]:
+# In[14]:
 
 
 #Environment Definition
@@ -45,15 +45,16 @@ class CustomEnvironment(ParallelEnv):
         self.delivered_packets=None #Metric that tracks the overall number of packets delivered
         self.initial_satellite_data=None#Stores the initial data volume values to allow for delivery ratio calcs later
         self.original_matrix=None
+        self.Num_of_Collisions=None
         self.total_initial_data_volume=None#Stores sum of initial satellite data volumes
         self.initial_data_volume=self.initial_data_volume = {
-    agent: [None] for agent in self.possible_agents
+    agent: None for agent in self.possible_agents
 }
         self.sat_energy_expended=self.sat_energy_expended = {
-    agent: [None] for agent in self.possible_agents
+    agent: None for agent in self.possible_agents
 }
         self.sat_packets_delivered=self.sat_packets_delivered = {
-    agent: [None] for agent in self.possible_agents
+    agent: None for agent in self.possible_agents
 }
         self.obs_satellite_data=self.obs_satellite_data = {
     agent: [None, None, None] for agent in self.possible_agents
@@ -90,7 +91,7 @@ class CustomEnvironment(ParallelEnv):
         #Define the initial data volume at each satellite
         for i in range(3):
             self.satellite_data[i]=random.randint(5,100)
-        print(self.satellite_data)
+        #print(self.satellite_data)
         self.initial_satellite_data=0
         for i in range(len(self.satellite_data)):
             self.initial_satellite_data=self.initial_satellite_data+self.satellite_data[i]
@@ -115,8 +116,8 @@ class CustomEnvironment(ParallelEnv):
         
             # Select nodes for the row
             selected_nodes = random.sample(available_nodes, num_nodes_in_row)
-            print("selected_nodes")
-            print(selected_nodes)
+            #print("selected_nodes")
+            #print(selected_nodes)
             # Update usage count
             for node in selected_nodes:
                 node_usage[node] += 1
@@ -169,29 +170,29 @@ class CustomEnvironment(ParallelEnv):
                     obs_matrix[i][j]=new_matrix[i][j]
                 elif j==2:
                     current_element=new_matrix[i][j]
-                    print("Current Element initial")
-                    print(current_element)
+                    #print("Current Element initial")
+                    #print(current_element)
                     encoded_row=[0,0,0]
                     if current_element!=-1:
                         for k in range(len(current_element)):
-                            print("current element")
-                            print(current_element[k])
+                            #print("current element")
+                            #print(current_element[k])
                             if current_element[k]=='Satellite1':
                                 encoded_row[0]=1
                             elif current_element[k]=='Satellite2':
                                 encoded_row[1]=1
                             elif current_element[k]=='Satellite3':
                                 encoded_row[2]=1
-                        print("Modified encoded row")
-                        print(encoded_row)
+                        #print("Modified encoded row")
+                        #print(encoded_row)
                     else:
                         encoded_row=[0,0,0]
                     for k in range(2,5):
-                        print("Encoded Row")
-                        print(encoded_row)
+                        #print("Encoded Row")
+                        #print(encoded_row)
                         obs_matrix[i][k]=encoded_row[k-2]
-        print("Obs matrix")
-        print(obs_matrix)
+        #print("Obs matrix")
+        #print(obs_matrix)
         #Next we must define the action mask 
         action_mask=[[0,0],[0,0],[0,0]]
         print(obs_matrix[0][2])
@@ -204,11 +205,11 @@ class CustomEnvironment(ParallelEnv):
         if obs_matrix[0][4]==1:
             action_mask[2]=[1,1]
         #Next need to configure action mask as dictionary
-        print("Original Action Mask")
-        print(action_mask)
+        #print("Original Action Mask")
+        #print(action_mask)
         obs_action_mask = {a: action_mask[i] for i, a in enumerate(self.agents)}
-        print("Observation Action Mask")
-        print(obs_action_mask)
+        #print("Observation Action Mask")
+        #print(obs_action_mask)
         #for a in self.agents:
         #    obs_action_mask=dict[a:None]
         #print(obs_action_mask)
@@ -230,9 +231,17 @@ class CustomEnvironment(ParallelEnv):
         #Set energy expenditure for each satellite
         self.energy_efficiency=[None,None,None]
         self.energy_expenditure=0
-        self.sat_energy_expended=[0,0,0]
-        self.initial_satellite_data_volume=[0,0,0]
-        self.sat_packets_delivered=[0,0,0]
+        self.sat_energy_expended = {
+    agent: 0 for agent in self.possible_agents
+}
+        i=0
+        for a in self.possible_agents:
+            self.initial_data_volume[a]=self.satellite_data[i]
+            i=i+1
+        self.sat_packets_delivered = {
+    agent: 0 for agent in self.possible_agents
+}
+        self.Num_of_Collisions=0
         for a in self.agents:
             self.obs_satellite_data[a]=self.satellite_obs_update(a)
             print("Initial Satellite Observations")
@@ -258,7 +267,7 @@ class CustomEnvironment(ParallelEnv):
         }
 
         # Get dummy infos. Necessary for proper parallel_to_aec conversion
-        infos = {a: {} for a in self.agents}
+        infos = {a: {"Delivered_Packets":self.delivered_packets,"Total_Energy_Expended":self.energy_expenditure,"True_Contact_Matrix":self.master_contact_plan,"satellite_delivered_packets":self.sat_packets_delivered[a],"satellite_energy_expended":self.sat_energy_expended[a],"satellite_initial_data_volume":self.initial_data_volume[a],"Number_of_Collisions":self.Num_of_Collisions} for a in self.agents}
         print("self.agents:", self.agents)
         print("Returning observations for:", list(observations.keys()))
         print("Expected agents:", self.agents)
@@ -309,7 +318,8 @@ class CustomEnvironment(ParallelEnv):
                 rewards[a]=-10
                 print("Collision between satellites")
                 print(rewards)
-                self.updateEnergyMetrics()
+                self.updateEnergyMetrics(a,10)
+                self.Num_of_Collisions=self.Num_of_Collisions+1
             else:
                 if current_value==0:
                     rewards[a]=0
@@ -329,8 +339,8 @@ class CustomEnvironment(ParallelEnv):
                         #First we need to update the buffers of the satellite
                         self.satBufferUpdate(i,delivered_packets)
                         #Update the Observation Space for the current agent
-                        self.updateEnergyMetrics(i,excess_energy)
-                        self.updateDeliveryMetrics(i,delivered_packets)
+                        self.updateEnergyMetrics(a,excess_energy)
+                        self.updateDeliveryMetrics(a,delivered_packets)
                         self.obs_satellite_data[a]=self.satellite_obs_update(a)
                         #Positive Reward
                         rewards[a]=delivered_packets/(excess_energy+1)
@@ -446,11 +456,11 @@ class CustomEnvironment(ParallelEnv):
                         encoded_row=[0,0,0]
                         if current_element!=-1:
                             for k in range(len(current_element)-1):
-                                if current_element[k]=="satellite1":
+                                if current_element[k]=="Satellite1":
                                     encoded_row[0]=1
-                                elif current_element[k]=="satellite2":
+                                elif current_element[k]=="Satellite2":
                                     encoded_row[1]=1
-                                elif current_element[k]=="satellite3":
+                                elif current_element[k]=="Satellite3":
                                     encoded_row[2]=1
                         else:
                             encoded_row=[0,0,0]
@@ -463,17 +473,15 @@ class CustomEnvironment(ParallelEnv):
             #Next we must define the action mask 
             action_mask=[[0,0],[0,0],[0,0]]
             if obs_matrix[self.timestep][2]==1:
-                action_mask[0]:[1,1]
+                action_mask[0]=[1,1]
             if obs_matrix[self.timestep][3]==1:
-                action_mask[1]:[1,1]
+                action_mask[1]=[1,1]
             if obs_matrix[self.timestep][4]==1:
-                action_mask[2]:[1,1]
+                action_mask[2]=[1,1]
             obs_action_mask = {a: action_mask[i] for i, a in enumerate(self.agents)}
         if delivered_packets==self.initial_satellite_data:
             terminations={a: True for a in self.agents}
-        
-
-        infos = {a: {} for a in self.agents}
+        infos = {a: {"Delivered_Packets":self.delivered_packets,"Total_Energy_Expended":self.energy_expenditure,"True_Contact_Matrix":self.master_contact_plan,"satellite_delivered_packets":self.sat_packets_delivered[a],"satellite_energy_expended":self.sat_energy_expended[a],"satellite_initial_data_volume":self.initial_data_volume[a],"Number_of_Collisions":self.Num_of_Collisions} for a in self.agents}
         observations = {
             a: {
                 "central_observation_matrix":obs_matrix,
@@ -528,7 +536,9 @@ class CustomEnvironment(ParallelEnv):
         #Update total energy expended
         self.energy_expenditure=self.energy_expenditure+energy_expended
         #Update the specific energy expended for the satellite
-        self.sat_energy_expended[a]=self.sat_energy_expended[a]+energy_expended
+        print(self.sat_energy_expended)
+        print(energy_expended)
+        self.sat_energy_expended[a] += energy_expended
 
 
         
@@ -571,6 +581,7 @@ class CustomEnvironment(ParallelEnv):
         current_data=self.satellite_data
         self.obs_satellite_data[agent]=self.satellite_data
         return self.obs_satellite_data[agent]
+    
 
     def render(self):
         print("Render not implemented yet.")
@@ -604,10 +615,16 @@ class CustomEnvironment(ParallelEnv):
 
 
 
-# In[ ]:
+# In[19]:
 
 
 #Next we evaluate the agent performance
 #Start with independent PPO
 #Then explore more advanced strategies
+
+
+# In[ ]:
+
+
+
 
