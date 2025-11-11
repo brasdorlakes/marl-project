@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[2]:
+# In[1]:
 
 
 #Here we will implement a flattened observation space
@@ -21,7 +21,7 @@ from pettingzoo.test import parallel_api_test
 from gymnasium import spaces
 
 
-# In[7]:
+# In[4]:
 
 
 #Environment Definition
@@ -204,13 +204,13 @@ class CustomEnvironmentFlat(ParallelEnv):
         #print(obs_matrix)
         #Next we must define the action mask 
         action_mask=[[0,0],[0,0],[0,0]]
-        print(obs_matrix[0][2])
+        #print(obs_matrix[0][2])
         if obs_matrix[0][2]==1:
             action_mask[0]=[1,1]
-        print(obs_matrix[0][3])
+        #print(obs_matrix[0][3])
         if obs_matrix[0][3]==1:
             action_mask[1]=[1,1]
-        print(obs_matrix[0][4])
+        #print(obs_matrix[0][4])
         if obs_matrix[0][4]==1:
             action_mask[2]=[1,1]
         #Next need to configure action mask as dictionary
@@ -331,7 +331,7 @@ class CustomEnvironmentFlat(ParallelEnv):
             
             if collision_matrix[i]==1:
                 #We have a conflict, no packets are sent and the satellite receives a large penalty
-                rewards[a]=-10
+                rewards[a]=-50
                 #print("Collision between satellites")
                 #print(rewards)
                 self.updateEnergyMetrics(a,10)
@@ -358,14 +358,18 @@ class CustomEnvironmentFlat(ParallelEnv):
                         self.updateEnergyMetrics(a,excess_energy)
                         self.updateDeliveryMetrics(a,delivered_packets)
                         self.obs_satellite_data[a]=self.satellite_obs_update(a)
-                        #Positive Reward
-                        rewards[a]=delivered_packets/(excess_energy+1)
+                        #Calculate the fraction of the remaining data for this particular satellite
+                        #To deliver
+                        delivery_fraction=self.sat_packets_delivered[a]/self.initial_data_volume[a]
+                            
+                        
+                        rewards[a]=10*(delivery_fraction)*(delivered_packets/10-0.5*(delivered_packets/10)*(excess_energy/(excess_energy+10)))
                         #print("Satellite successfully delivers data")
                         #print(rewards)
                         #Next need to update the observed satellite data values for each satellite
                         interim_satellite_data_observations=self.satellite_obs_update(a)
                     else:
-                        rewards[a]=-1
+                        rewards[a]=-5 * (0.5*(excess_energy/(excess_energy+10)))
                         #print(rewards)
                         #print("Satellite fails to deliver data")
             i=i+1
