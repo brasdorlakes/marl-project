@@ -1,12 +1,9 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[1]:
+# In[8]:
 
 
-#Here we will implement a flattened observation space
-#This is done to improve compatibility with MARL libraries
-#
 #Import Packages
 import functools
 import random
@@ -21,7 +18,7 @@ from pettingzoo.test import parallel_api_test
 from gymnasium import spaces
 
 
-# In[4]:
+# In[16]:
 
 
 #Environment Definition
@@ -32,11 +29,6 @@ class CustomEnvironmentFlat(ParallelEnv):
         "name": "multi_satellite_downlink_v0",
     }
     def __init__(self):
-        """The init method takes in environment arguments.
-        
-        
-        These attributes should not be changed after initialization.
-        """
         self.master_contact_plan = None
         self.satellite_plan = None
         #Data that we must transmit to the ground
@@ -53,6 +45,11 @@ class CustomEnvironmentFlat(ParallelEnv):
         self.delivered_packets=None #Metric that tracks the overall number of packets delivered
         self.original_matrix=None
         self.Num_of_Collisions=None
+        self.Total_Number_of_Contacts=None
+        self.num_of_contacts=self.num_of_contacts={
+    agent: None for agent in self.possible_agents
+}
+        
         self.total_initial_data_volume=None#Stores sum of initial satellite data volumes
         self.initial_data_volume=self.initial_data_volume = {
     agent: None for agent in self.possible_agents
@@ -76,22 +73,7 @@ class CustomEnvironmentFlat(ParallelEnv):
         self.action_spaces = {agent: self.action_space for agent in self.possible_agents}
 
     def reset(self, *, seed=None, options=None):
-        """Reset set the environment to a starting point.
        
-        It needs to initialize the following attributes:
-        - agents
-        - timestamp
-        - Initial Data Volume
-        - Master Contact Plan
-        - Number of Delivered Packets
-        - Energy Expenditure
-        - Delivery Ratio
-        - Energy Efficiency
-        - observation
-        - infos
-
-        And must set up the environment so that render(), step(), and observe() can be called without issues.
-        """
         self.np_random, _ = gym.utils.seeding.np_random(seed)
         self.agents = copy(self.possible_agents)
         self.timestep = 0
@@ -136,19 +118,6 @@ class CustomEnvironmentFlat(ParallelEnv):
             matrix.append(row)
         
             row_index += 1
-        # Output the matrix
-        #for row in matrix:
-            #print(row)
-        
-        # Show final node usage
-        #print("\nFinal node usage:")
-        #for node, count in node_usage.items():
-            #print(f"{node}: {count}")
-        
-        #print(f"\nTotal rows generated: {len(matrix)}")
-
-        #Next we need either divide up the master contact plan during observations or 
-        #Pad the complete matrix up to 30
         
         if len(matrix)<30:
             rows, cols = 30, 3
@@ -164,9 +133,6 @@ class CustomEnvironmentFlat(ParallelEnv):
         
         else:
             new_matrix=matrix
-            #print(new_matrix)
-        #print("New Matrix")
-        #print(new_matrix)
         self.original_matrix=new_matrix
         #Next we must convert the new matrix into a format that can be loaded into the observation space effectively
         
@@ -200,17 +166,12 @@ class CustomEnvironmentFlat(ParallelEnv):
                         #print("Encoded Row")
                         #print(encoded_row)
                         obs_matrix[i][k]=encoded_row[k-2]
-        #print("Obs matrix")
-        #print(obs_matrix)
         #Next we must define the action mask 
         action_mask=[[0,0],[0,0],[0,0]]
-        #print(obs_matrix[0][2])
         if obs_matrix[0][2]==1:
             action_mask[0]=[1,1]
-        #print(obs_matrix[0][3])
         if obs_matrix[0][3]==1:
             action_mask[1]=[1,1]
-        #print(obs_matrix[0][4])
         if obs_matrix[0][4]==1:
             action_mask[2]=[1,1]
         #Next need to configure action mask as dictionary
@@ -247,38 +208,12 @@ class CustomEnvironmentFlat(ParallelEnv):
     agent: 0 for agent in self.possible_agents
 }
         self.Num_of_Collisions=0
+        self.Total_Number_of_Contacts=0
+        self.num_of_contacts={agent:0 for agent in self.possible_agents}
         for a in self.agents:
             self.obs_satellite_data[a]=self.satellite_obs_update(a)
-            #print("Initial Satellite Observations")
-            #print(self.obs_satellite_data[a])
-        
-        #Implement observations
-        #Each satellite has access to the following observations
-        #The total contact matrix
-        #The amount of data remaining in the each satellite (at the last point we contacted the ground)
-        #The current timestep
-        #The action mask
-        
 
-        
-        #observations = {
-        #    a: {
-        #        "central_observation_matrix":obs_matrix,
-        #        "remaining_satellite_data":self.obs_satellite_data[a],
-        #        "current_timestep":self.timestep,
-        #        "action_mask":obs_action_mask[a]
-        #    }
-        #    for a in self.agents
-        #}
-
-        # Get dummy infos. Necessary for proper parallel_to_aec conversion
-        infos = {a: {"Delivered_Packets":self.delivered_packets,"Total_Energy_Expended":self.energy_expenditure,"True_Contact_Matrix":self.master_contact_plan,"satellite_delivered_packets":self.sat_packets_delivered[a],"satellite_energy_expended":self.sat_energy_expended[a],"satellite_initial_data_volume":self.initial_data_volume[a],"Number_of_Collisions":self.Num_of_Collisions,"Initial_Satellite_Data_Volume":self.initial_data_volume[a],"Total_Initial_Satellite_Data_Volume":self.initial_data_volume[a]} for a in self.agents}
-        #print("self.agents:", self.agents)
-        #print("Returning observations for:", list(observations.keys()))
-        #print("Expected agents:", self.agents)
-       # missing = [agent for agent in self.agents if agent not in observations]
-       # if missing:
-       #     print("❌ Missing observations for agents:", missing)
+        infos = self.get_info()
         observations={agent:None for agent in self.possible_agents}
         for a in self.agents:
             dict_observations={
@@ -289,7 +224,6 @@ class CustomEnvironmentFlat(ParallelEnv):
             }
             output_observations=self.flatten_obs(dict_observations)
             observations[a]=output_observations
-        #print(observations)
         return observations, infos
 
     def step(self, actions):
@@ -327,6 +261,7 @@ class CustomEnvironmentFlat(ParallelEnv):
         #Need to fix this
         for a in self.agents:
             current_value = actions[a]
+            self.updateTotalContacts(current_value)
             other_ones_exist = (total_ones - (1 if current_value == 1 else 0)) > 0
             
             if collision_matrix[i]==1:
@@ -363,7 +298,7 @@ class CustomEnvironmentFlat(ParallelEnv):
                         delivery_fraction=self.sat_packets_delivered[a]/self.initial_data_volume[a]
                             
                         
-                        rewards[a]=10*(delivery_fraction)*(delivered_packets/10-0.5*(delivered_packets/10)*(excess_energy/(excess_energy+10)))
+                        rewards[a]=10*(delivery_fraction+1)*(delivered_packets/10-0.5*(delivered_packets/10)*(excess_energy/(excess_energy+10)))
                         #print("Satellite successfully delivers data")
                         #print(rewards)
                         #Next need to update the observed satellite data values for each satellite
@@ -501,7 +436,7 @@ class CustomEnvironmentFlat(ParallelEnv):
             obs_action_mask = {a: action_mask[i] for i, a in enumerate(self.agents)}
         if delivered_packets==self.total_initial_data_volume:
             terminations={a: True for a in self.agents}
-        infos = {a: {"Delivered_Packets":self.delivered_packets,"Total_Energy_Expended":self.energy_expenditure,"True_Contact_Matrix":self.master_contact_plan,"satellite_delivered_packets":self.sat_packets_delivered[a],"satellite_energy_expended":self.sat_energy_expended[a],"satellite_initial_data_volume":self.initial_data_volume[a],"Number_of_Collisions":self.Num_of_Collisions,"Initial_Satellite_Data_Volume":self.initial_data_volume[a],"Total_Initial_Satellite_Data_Volume":self.total_initial_data_volume} for a in self.agents}
+        infos = self.get_info()
         for a in self.agents:
             self.obs_satellite_data[a]=self.satellite_obs_update(a)
             #print("Initial Satellite Observations")
@@ -657,8 +592,11 @@ class CustomEnvironmentFlat(ParallelEnv):
         #    "current_timestep": spaces.Box(low=0.0, high=32, shape=(1,), dtype=np.float32),
         #    "action_mask": spaces.MultiBinary(2),
         #})
-    
-
+    def get_info(self):
+        return {a:{"Delivered_Packets":self.delivered_packets,"Total_Energy_Expended":self.energy_expenditure,"True_Contact_Matrix":self.master_contact_plan,"satellite_delivered_packets":self.sat_packets_delivered[a],"satellite_energy_expended":self.sat_energy_expended[a],"satellite_initial_data_volume":self.initial_data_volume[a],"Number_of_Collisions":self.Num_of_Collisions,"Initial_Satellite_Data_Volume":self.initial_data_volume[a],"Satellite_Initial_Satellite_Data_Volume":self.initial_data_volume[a],"Total_Initial_Satellite_Data_Volume": self.total_initial_data_volume, "Total_Number_of_Contacts_Used": self.Total_Number_of_Contacts
+        ,"satellite_number_of_contacts_used":self.num_of_contacts[a]} for a in self.agents}
+    def updateTotalContacts(self,action):
+        self.Total_Number_of_Contacts+=action
 # Action space should be defined here.
 # If your spaces change over time, remove this line (disable caching).
     @functools.lru_cache(maxsize=None)
