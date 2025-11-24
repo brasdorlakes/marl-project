@@ -481,7 +481,12 @@ class CustomEnvironment(ParallelEnv):
             obs_action_mask = {a: action_mask[i] for i, a in enumerate(self.agents)}
         if delivered_packets==self.total_initial_data_volume:
             terminations={a: True for a in self.agents}
+        print(self.Num_of_Collisions)
         infos = {a: {"Delivered_Packets":self.delivered_packets,"Total_Energy_Expended":self.energy_expenditure,"True_Contact_Matrix":self.master_contact_plan,"satellite_delivered_packets":self.sat_packets_delivered[a],"satellite_energy_expended":self.sat_energy_expended[a],"satellite_initial_data_volume":self.initial_data_volume[a],"Number_of_Collisions":self.Num_of_Collisions,"Initial_Satellite_Data_Volume":self.initial_data_volume[a],"Total_Initial_Satellite_Data_Volume":self.total_initial_data_volume} for a in self.agents}
+        for a in self.agents:
+            self.obs_satellite_data[a]=self.satellite_obs_update(a)
+            print("Initial Satellite Observations")
+            print(self.obs_satellite_data[a])
         observations = {
             a: {
                 "central_observation_matrix":obs_matrix,
