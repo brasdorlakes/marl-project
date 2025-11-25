@@ -435,7 +435,7 @@ class CustomEnvironmentFlat(ParallelEnv):
             }
             output_observations=self.flatten_obs(dict_observations)
             observations[a]=output_observations
-            print(observations[a].shape)
+            #print(observations[a].shape)
         if any(terminations.values()) or all(truncations.values()):
             self.agents = []
         missing = [agent for agent in self.agents if agent not in observations]
@@ -500,7 +500,7 @@ class CustomEnvironmentFlat(ParallelEnv):
         #Checks for conflicts in satellite downlink requests
         master_observation_matrix=self.master_contact_plan
         LoS_matrix=master_observation_matrix[timestep][2:5]
-        print(LoS_matrix)
+        #print(LoS_matrix)
         conflict_matrix=[0,0,0]
         for j in range(0,3):
             if actions[j]*LoS_matrix[j]==1:
