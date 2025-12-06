@@ -24,7 +24,6 @@ from gymnasium import spaces
 #Multi-Satellite Optical Downlink Environment
 #Only works for 3 satellites (hard-coded)
 #Incorporates weather condition uncertainty and competition between satellites for ground stations
-#
 class CustomEnvironmentFlat(ParallelEnv):
     metadata = {
         "name": "multi_satellite_downlink_v0",
@@ -98,7 +97,7 @@ class CustomEnvironmentFlat(ParallelEnv):
         #Contains 30 contacts (total), weather values for each contact and which contacts are shared
         
         #Code below was written with a template created with ChatGPT
-        #Basically we only want 10 contacts (transmission opportuniteies per satellite) but 
+        #Basically we only want 10 contacts (transmission opportunities per satellite) but 
         #we need a consistent observation size for our agent so we need to randomly assign
         #contacts to the satellites but we can exceed that number of any one satellite
         nodes = ['Satellite1', 'Satellite2', 'Satellite3']
@@ -178,7 +177,7 @@ class CustomEnvironmentFlat(ParallelEnv):
         #Action mask currently is not used
         #Its main purpose is to indicate to satellites if they are trying to transmit when they don't have
         #line of sight. But in initial trials we see if the agents can figure this out for themselves (they
-        #would get a negative reward from this
+        #would get a negative reward from this) so we don't actually use this
         action_mask=[[0,0],[0,0],[0,0]]
         if obs_matrix[0][2]==1:
             action_mask[0]=[1,1]
@@ -186,9 +185,6 @@ class CustomEnvironmentFlat(ParallelEnv):
             action_mask[1]=[1,1]
         if obs_matrix[0][4]==1:
             action_mask[2]=[1,1]
-        #Next need to configure action mask as dictionary
-        #print("Original Action Mask")
-        #print(action_mask)
         obs_action_mask = {a: action_mask[i] for i, a in enumerate(self.agents)}
         #We initialize the main metrics we will use to evaluate ourmodels
         self.master_contact_plan=obs_matrix        
@@ -244,7 +240,6 @@ class CustomEnvironmentFlat(ParallelEnv):
 
         rewards={}
         i=0
-        #Need to fix this
         for a in self.agents:
             #The action of the agent
             current_value = actions[a]
@@ -325,8 +320,6 @@ class CustomEnvironmentFlat(ParallelEnv):
                         else:
                             encoded_row=[0,0,0]
                         for k in range(2,5):
-                            #print("Encoded Row")
-                            #print(encoded_row)
                             obs_matrix[i][k]=encoded_row[k-2]
             
        
@@ -454,16 +447,17 @@ class CustomEnvironmentFlat(ParallelEnv):
     def updateDeliveryandEnergy(self,weather,length,remaining_data):
         #Updates delivery and energy metrics according to our system model
         
-        delivered_packets=0
-        excess_energy_expended=0
-        random_sample=self.np_random.uniform(low=0.0, high=1.0, size=(10,)).astype(np.float32)
-        for i in range(length-1):
+        delivered_packets=0#Local variable used to track how many packets delivered just in this contact
+        excess_energy_expended=0#Local variable to track the amount of excess energy expended
+        random_sample=self.np_random.uniform(low=0.0, high=1.0, size=(10,)).astype(np.float32)#Get 10 samples every contact we use to compare
+        for i in range(0,length):
+            remaining_data=np.round(remaining_data)#round to be safe
             if remaining_data>0:
                 if random_sample[i]> weather:
-                    delivered_packets=delivered_packets+1
-                    remaining_data=remaining_data-1
+                    delivered_packets=delivered_packets+1#We successfully deliver packets
+                    remaining_data=remaining_data-1#We update the remaining packets to deliver
                 else:
-                    excess_energy_expended=excess_energy_expended+1
+                    excess_energy_expended=excess_energy_expended+1#We failed to deliver, we add to excess energy expended
             else:
                 excess_energy_expended=excess_energy_expended+1
         
@@ -473,8 +467,8 @@ class CustomEnvironmentFlat(ParallelEnv):
     #Update the energy expenditure metrics
     def updateEnergyMetrics(self,a,energy_expended):
         #Update total energy expended
-        self.energy_expenditure=self.energy_expenditure+energy_expended
-        self.sat_energy_expended[a] += energy_expended
+        self.energy_expenditure=self.energy_expenditure+energy_expended #Update the total amount of energy expended by all three satellites
+        self.sat_energy_expended[a] += energy_expended#Update the amount of energy this individual satellite expended
 
 
         
@@ -488,8 +482,10 @@ class CustomEnvironmentFlat(ParallelEnv):
     #Update the satellite buffer of the agent
     def satBufferUpdate(self,agent,delivered_packets):
         #Updates the satellite buffers
+        
         if self.satellite_data[agent]<delivered_packets:
-            self.energy_expenditure=delivered_packets-self.satellite_data[agent]
+            self.energy_expenditure=self.energy_expenditure+delivered_packets-self.satellite_data[agent]
+            self.sat_energy_expended[a]+=self.sat_energy_expended[agent]+delivered_packets-self.satellite_data[agent]
             self.satellite_data[agent]=0
             
         else:
@@ -499,8 +495,8 @@ class CustomEnvironmentFlat(ParallelEnv):
     def checkActionConflict(self,timestep,actions):
         #Checks for conflicts in satellite downlink requests
         master_observation_matrix=self.master_contact_plan
+        #We figure out what satellites can see the ground station
         LoS_matrix=master_observation_matrix[timestep][2:5]
-        #print(LoS_matrix)
         conflict_matrix=[0,0,0]
         for j in range(0,3):
             if actions[j]*LoS_matrix[j]==1:
@@ -523,8 +519,6 @@ class CustomEnvironmentFlat(ParallelEnv):
             contact_plan=obs["central_observation_matrix"]
             for j in contact_plan[i]:
                 flattened_obs.append(j)
-        #print("Before i")
-        #print(obs["remaining_satellite_data"])
         all_agents=["satellite1","satellite2","satellite3"]
         satellite_buffer_obs=obs["remaining_satellite_data"]
         for i in all_agents:
@@ -539,7 +533,7 @@ class CustomEnvironmentFlat(ParallelEnv):
         
     @functools.lru_cache(maxsize=None)
     def observation_space(self, agent):
-        
+        #Defines the observation space consistently with our flattened observations
         return spaces.Box(low=-1.0,high=1.0,shape=(154,),dtype=np.float32)
     def get_info(self):
         #Info outputs metrics useful for graphing and understanding agent behaviour
