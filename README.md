@@ -1,1 +1,1 @@
-Multi-Agent environment for project, up to date environment files are the flat ones. Dependencies should be in the requirements.txt
+Multi-Agent environment for project, up to date environment files are the flat ones. Dependencies should be in the requirements.txt. Might need to do extra work to install benchMARL. Ignore IPPO and CPPO code, not used in project. Also ignore the Dictionary based environment setups.
